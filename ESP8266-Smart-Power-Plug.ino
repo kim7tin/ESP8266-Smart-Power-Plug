@@ -7,11 +7,17 @@
 #define MAX_PASS_LEN 16
 #define TOKEN_LEN 16
 
-const char *wifi_ssid = "KHome";
+const char *wifi_ssid = "KHome-X";
 const char *wifi_password = "HoangTung";
-const char *control_password = "12345";
+const char *control_password = "123456";
+
+const byte on_message[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x01, 0xa2 };
+const byte off_message[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x00, 0xa1 };
 
 char code[TOKEN_LEN], token[TOKEN_LEN];
+
+// on 0d 0a 2b 49 50 44 2c 30 2c 34 3a a0 01 01 a2
+// off 0d 0a 2b 49 50 44 2c 30 2c 34 3a a0 01 00 a1 
 
 ESP8266WebServer server ( 666 );
 
@@ -180,7 +186,7 @@ void control(){
 void setup ( void ) {
   pinMode ( led, OUTPUT );
   digitalWrite ( led, 0 );
-  Serial.begin ( 115200 );
+  Serial.begin ( 9600 );
   EEPROM.begin(512);
 
 
@@ -201,9 +207,9 @@ void setup ( void ) {
 
 
   // Static local IP for config NAT in router
-
-  IPAddress ip(192, 168, 1, 66); // where xx is the desired IP Address
-  IPAddress gateway(192, 168, 1, 1); // set gateway to match your network
+  WiFi.mode(WIFI_STA);
+  IPAddress ip(192, 168, 3, 66); // where xx is the desired IP Address
+  IPAddress gateway(192, 168, 3, 1); // set gateway to match your network
   Serial.print(F("Setting static ip to : "));
   Serial.println(ip);
   IPAddress subnet(255, 255, 255, 0); // set subnet mask to match your network
