@@ -10,51 +10,27 @@
 const char *wifi_ssid = "KHome-X";
 const char *wifi_password = "HoangTung";
 const char *control_password = "123456";
+String friendlyName = "Light";
+IPAddress ip(192, 168, 3, 66); // where xx is the desired IP Address
+IPAddress gateway(192, 168, 3, 1); // set gateway to match your network
+IPAddress subnet(255, 255, 255, 0); // set subnet mask to match your network
 
 const byte on_message[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x01, 0xa2 };
 const byte off_message[] = {0x0d, 0x0a, 0x2b, 0x49, 0x50, 0x44, 0x2c, 0x34, 0x3a, 0xa0, 0x01, 0x00, 0xa1 };
 
-char code[TOKEN_LEN], token[TOKEN_LEN];
+char code[TOKEN_LEN + 1], token[TOKEN_LEN + 1];
+char mac[13];
 
 // on 0d 0a 2b 49 50 44 2c 30 2c 34 3a a0 01 01 a2
-// off 0d 0a 2b 49 50 44 2c 30 2c 34 3a a0 01 00 a1 
+// off 0d 0a 2b 49 50 44 2c 30 2c 34 3a a0 01 00 a1
 
 ESP8266WebServer server ( 666 );
 
 const int led = 2;
 
-void handleRoot() {
-  digitalWrite ( led, 1 );
-  char temp[400];
-  int sec = millis() / 1000;
-  int min = sec / 60;
-  int hr = min / 60;
-
-  snprintf ( temp, 400,
-
-             "<html>\
-  <head>\
-    <meta http-equiv='refresh' content='5'/>\
-    <title>ESP8266 Demo</title>\
-    <style>\
-      body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
-    </style>\
-  </head>\
-  <body>\
-    <h1>Hello from ESP8266!</h1>\
-    <p>Uptime: %02d:%02d:%02d</p>\
-    <img src=\"/test.svg\" />\
-  </body>\
-</html>",
-
-             hr, min % 60, sec % 60
-           );
-  server.send ( 200, "text/html", temp );
-  digitalWrite ( led, 0 );
-}
-
 void handleNotFound() {
   digitalWrite ( led, 1 );
+  Serial.print("Not found");
   String message = "File Not Found\n\n";
   message += "URI: ";
   message += server.uri();
@@ -121,7 +97,7 @@ void access() {
   server.send ( 200, "text/html", creat_token );
 }
 
-void discover(){
+void discover() {
   if (!server.hasArg("t")) {
     server.send ( 400, "text/html", "" );
     return;
@@ -130,43 +106,22 @@ void discover(){
   char receive_token[TOKEN_LEN + 1];
   server.arg("t").toCharArray(receive_token, TOKEN_LEN + 1);
 
+  Serial.println(receive_token);
+  Serial.println(token);
+
   if (strcmp(receive_token, token) != 0) {
     server.send ( 403, "text/html", "" );
     return;
   }
+  String string_mac(mac);
+  String info = "{\"endpoints\":[{\"endpointId\":\"" + string_mac + "\",\"friendlyName\":\"" + friendlyName + "\",\"description\":\"Smart Light by Duc Tin\",\"manufacturerName\":\"Duc Tin\",\"displayCategories\":[\"LIGHT\"],\"cookie\":{},\"capabilities\":[{\"type\":\"AlexaInterface\",\"interface\":\"Alexa\",\"version\":\"3\"},{\"type\":\"AlexaInterface\",\"interface\":\"Alexa.PowerController\",\"version\":\"3\",\"properties\":{\"supported\":[{\"name\":\"powerState\"}],\"proactivelyReported\":false,\"retrievable\":false}}]}]}";
 
-  
-  digitalWrite ( led, 1 );
-  char temp[400];
-  int sec = millis() / 1000;
-  int min = sec / 60;
-  int hr = min / 60;
-
-  snprintf ( temp, 400,
-
-             "<html>\
-  <head>\
-    <meta http-equiv='refresh' content='5'/>\
-    <title>ESP8266 Demo</title>\
-    <style>\
-      body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
-    </style>\
-  </head>\
-  <body>\
-    <h1>Hello from ESP8266!</h1>\
-    <p>Uptime: %02d:%02d:%02d</p>\
-    <img src=\"/test.svg\" />\
-  </body>\
-</html>",
-
-             hr, min % 60, sec % 60
-           );
-  server.send ( 200, "text/html", temp );
+  server.send ( 200, "text/html", info );
   digitalWrite ( led, 0 );
 }
 
-void control(){
-  if (!server.hasArg("t")) {
+void control() {
+  if (!server.hasArg("t") || !server.hasArg("i") || !server.hasArg("c")) {
     server.send ( 400, "text/html", "" );
     return;
   }
@@ -177,6 +132,17 @@ void control(){
   if (strcmp(receive_token, token) != 0) {
     server.send ( 403, "text/html", "" );
     return;
+  }
+
+  char control[2];
+  server.arg("c").toCharArray(control, 2);
+  Serial.println(control[0]);
+  if (control[0] == 49) {
+    Serial.println("ON");
+    Serial.write(on_message, sizeof(on_message));
+  } else if (control[0] == 48) {
+    Serial.println("OFF");
+    Serial.write(off_message, sizeof(off_message));
   }
 
   server.send ( 200, "text/html", "" );
@@ -208,11 +174,8 @@ void setup ( void ) {
 
   // Static local IP for config NAT in router
   WiFi.mode(WIFI_STA);
-  IPAddress ip(192, 168, 3, 66); // where xx is the desired IP Address
-  IPAddress gateway(192, 168, 3, 1); // set gateway to match your network
   Serial.print(F("Setting static ip to : "));
   Serial.println(ip);
-  IPAddress subnet(255, 255, 255, 0); // set subnet mask to match your network
   WiFi.config(ip, gateway, subnet);
 
   WiFi.begin ( wifi_ssid, wifi_password );
@@ -233,18 +196,15 @@ void setup ( void ) {
   if ( MDNS.begin ( "esp8266" ) ) {
     Serial.println ( "MDNS responder started" );
   }
-
+  byte byte_mac[6];
+  WiFi.macAddress(byte_mac);
+  sprintf(mac, "%02X%02X%02X%02X%02X%02X", byte_mac[0], byte_mac[1], byte_mac[2], byte_mac[3], byte_mac[4], byte_mac[5]);
+  Serial.println(mac);
   server.on("/login", login);
   server.on("/access", access);
   server.on("/discover", discover);
   server.on("/control", control);
 
-
-  server.on ( "/", handleRoot );
-  server.on ( "/test.svg", drawGraph );
-  server.on ( "/inline", []() {
-    server.send ( 200, "text/plain", "this works as well" );
-  } );
   server.onNotFound ( handleNotFound );
   server.begin();
   Serial.println ( "HTTP server started" );
@@ -252,22 +212,4 @@ void setup ( void ) {
 
 void loop ( void ) {
   server.handleClient();
-}
-
-void drawGraph() {
-  String out = "";
-  char temp[100];
-  out += "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" width=\"400\" height=\"150\">\n";
-  out += "<rect width=\"400\" height=\"150\" fill=\"rgb(250, 230, 210)\" stroke-width=\"1\" stroke=\"rgb(0, 0, 0)\" />\n";
-  out += "<g stroke=\"black\">\n";
-  int y = rand() % 130;
-  for (int x = 10; x < 390; x += 10) {
-    int y2 = rand() % 130;
-    sprintf(temp, "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke-width=\"1\" />\n", x, 140 - y, x + 10, 140 - y2);
-    out += temp;
-    y = y2;
-  }
-  out += "</g>\n</svg>\n";
-
-  server.send ( 200, "image/svg+xml", out);
 }
